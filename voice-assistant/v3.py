@@ -101,12 +101,14 @@ def handle_audio_input():
 
 def process_wake_word(text):
     """입력된 텍스트에서 Wake Word 감지 후 실행"""
-    for wake_word, action in wake_word_actions.items():
+    wake_words = set(wake_word_actions.keys())  # Wake Word 집합화 (탐색 속도 개선)
+
+    for wake_word in wake_words:
         if wake_word in text:
             print(f"✅ Wake Word 감지됨: {wake_word}")
-            action()
+            wake_word_actions[wake_word]()  # 매칭된 함수 실행
             return True
-    return False  # Wake Word가 감지되지 않음
+    return False
 
 
 # ----------- GPT API 호출 -----------
