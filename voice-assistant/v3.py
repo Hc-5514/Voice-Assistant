@@ -1,11 +1,12 @@
 """
-로컬 환경 STT-TTS + Wake Word + GPT-4o
+로컬 환경 STT-TTS + Wake Word + GPT-4o (logging 적용)
 STT: Whisper (base)
 TTS: Pyttsx3
 Wake Word: API 사용 x
 GPT: GPT-4o
 """
 
+import logging
 import os
 import timeit
 
@@ -14,6 +15,16 @@ import pyttsx3
 import speech_recognition as sr
 import whisper
 from dotenv import load_dotenv
+
+# ----------- 로그 설정 -----------
+logging.basicConfig(
+    level=logging.INFO,  # 모든 로그 출력
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("./logs/v3.log"),  # 로그 파일 저장
+        logging.StreamHandler()  # 콘솔 출력
+    ]
+)
 
 # ----------- 환경 설정 및 초기화 -----------
 load_dotenv()  # .env 파일에서 API 키 로드
@@ -52,14 +63,15 @@ def speak_text(text):
     try:
         engine.say(text)
         engine.runAndWait()
+        logging.info(f"🗣️ 음성 출력: {text}")
     except Exception as e:
-        print(f"[ERROR] 음성 출력 실패: {e}")
+        logging.error(f"[ERROR] 음성 출력 실패: {e}")
 
 
 def transcribe_audio_to_text(audio_data):
     """오디오 데이터를 텍스트로 변환 (STT)"""
     try:
-        print("🔄 오디오 데이터 처리 중...")
+        logging.info("🔄 오디오 데이터 처리 중...")
         temp_filename = "temp.wav"
 
         with open(temp_filename, "wb") as f:
@@ -67,9 +79,11 @@ def transcribe_audio_to_text(audio_data):
 
         result = whisper_model.transcribe(temp_filename, language="ko", fp16=False)
         os.remove(temp_filename)
-        return result.get("text", "").strip()
+        text = result.get("text", "").strip()
+        logging.info(f"📝 변환된 텍스트: {text}")
+        return text
     except Exception as e:
-        print(f"[ERROR] STT 변환 실패: {e}")
+        logging.error(f"[ERROR] STT 변환 실패: {e}")
         return None
 
 
@@ -78,8 +92,8 @@ def handle_audio_input():
     recognizer = sr.Recognizer()
     microphone = sr.Microphone()
 
-    print("=======================================================")
-    print("🎤 음성 비서가 준비되었습니다.")
+    logging.info("=======================================================")
+    logging.info("🎤 음성 비서가 준비되었습니다.")
 
     # 마이크 감도 및 잡음 조정
     recognizer.dynamic_energy_threshold = False  # 자동 감도 조절 비활성화
@@ -90,13 +104,13 @@ def handle_audio_input():
         try:
             with microphone as source:
                 recognizer.adjust_for_ambient_noise(source, duration=1.5)  # 배경 소음 보정 강화
-                print("🎙 질문을 듣는 중...")
+                logging.info("🎙 질문을 듣는 중...")
                 audio = recognizer.listen(source, timeout=None)
             return audio
         except sr.UnknownValueError:
-            print("⚠️ 음성을 이해하지 못했습니다. 다시 말씀해주세요.")
+            logging.warning("⚠️ 음성을 이해하지 못했습니다. 다시 말씀해주세요.")
         except Exception as e:
-            print(f"[ERROR] 음성 입력 오류: {e}")
+            logging.error(f"[ERROR] 음성 입력 오류: {e}")
 
 
 def process_wake_word(text):
@@ -105,7 +119,7 @@ def process_wake_word(text):
 
     for wake_word in wake_words:
         if wake_word in text:
-            print(f"✅ Wake Word 감지됨: {wake_word}")
+            logging.info(f"✅ Wake Word 감지됨: {wake_word}")
             wake_word_actions[wake_word]()  # 매칭된 함수 실행
             return True
     return False
@@ -116,7 +130,7 @@ def process_wake_word(text):
 def generate_response(user_input):
     """GPT-4o API를 호출하여 응답 생성"""
     try:
-        print("[INFO] GPT 응답 생성 중...")
+        logging.info("GPT 응답 생성 중...")
 
         response = openai.ChatCompletion.create(
             model="gpt-4o",
@@ -128,9 +142,11 @@ def generate_response(user_input):
             temperature=0.5,
         )
 
-        return response["choices"][0]["message"]["content"].strip()
+        assistant_response = response["choices"][0]["message"]["content"].strip()
+        logging.info(f"🤖 GPT 응답: {assistant_response}")
+        return assistant_response
     except Exception as e:
-        print(f"[ERROR] GPT 응답 생성 중 오류 발생: {e}")
+        logging.error(f"[ERROR] GPT 응답 생성 중 오류 발생: {e}")
         return None
 
 
@@ -146,10 +162,8 @@ def main():
             transcribed_text = transcribe_audio_to_text(audio_data)
 
             if not transcribed_text:
-                print("⚠️ 텍스트 변환 실패: 다시 질문해주세요.")
+                logging.warning("⚠️ 텍스트 변환 실패: 다시 질문해주세요.")
                 continue
-
-            print(f"📝 변환된 텍스트: {transcribed_text}")
 
             # Wake Word 실행 후 즉시 다음 입력 대기
             if process_wake_word(transcribed_text):
@@ -158,22 +172,21 @@ def main():
             # GPT 응답 생성
             response = generate_response(transcribed_text)
             if not response:
-                print("[WARNING] GPT 응답 생성 실패")
+                logging.warning("[WARNING] GPT 응답 생성 실패")
                 continue
 
             # 실행 시간 측정 및 출력
             end_time = timeit.default_timer()
             elapsed_time = end_time - start_time
-            print(f"⏳ 실행 시간: {elapsed_time:.3f}초")
+            logging.info(f"⏳ 실행 시간: {elapsed_time:.3f}초")
 
-            print(f"GPT 응답: {response}")
             speak_text(response)
 
         except KeyboardInterrupt:
-            print("\n🚪 프로그램을 종료합니다.")
+            logging.info("\n🚪 프로그램을 종료합니다.")
             break
         except Exception as e:
-            print(f"[ERROR] 예외 발생: {e}")
+            logging.error(f"[ERROR] 예외 발생: {e}")
 
 
 if __name__ == "__main__":
