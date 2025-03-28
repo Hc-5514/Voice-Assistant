@@ -9,6 +9,7 @@ GPT: GPT-4o
 import logging
 import os
 import timeit
+import sys
 
 import openai
 import pyttsx3
@@ -30,8 +31,10 @@ logging.basicConfig(
 load_dotenv()  # .env 파일에서 API 키 로드
 whisper_model = whisper.load_model("base")  # STT 모델 로드
 engine = pyttsx3.init()  # TTS 엔진 초기화
+engine.setProperty('voice', 'com.apple.voice.compact.ko-KR.Yuna')
 engine.setProperty("rate", 180)  # 음성 속도 조절
 engine.setProperty("volume", 1.0)  # 볼륨 설정
+sys.stderr = open(os.devnull, 'w')  # ALSA 등의 시스템 에러 메시지를 무시
 
 # Wake Word 정의 및 실행할 액션 매핑
 wake_word_actions = {
