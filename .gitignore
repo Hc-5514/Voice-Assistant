@@ -1,2 +1,5 @@
 /speech-to-text/vosk/models/
-/text-to-speech/piper/model/
+/text-to-speech/piper/models/
+/.venv/
+/.env
+/voice-assistant/logs/
