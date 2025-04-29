@@ -1,7 +1,7 @@
 """
-로컬 환경 STT + Wake Word + GPT-4o (logging 적용)
+로컬 환경 STT + Wake Word + GPT-4o + Google Cloud TTS (logging 적용)
 STT: Whisper (base)
-TTS: gTTS
+TTS: Google Cloud Text-to-Speech
 Wake Word: API 사용 x
 GPT: GPT-4o
 """
@@ -9,11 +9,14 @@ GPT: GPT-4o
 import logging
 import multiprocessing
 import os
+import subprocess
+import time
 
 import openai
 import speech_recognition as sr
 import whisper
 from dotenv import load_dotenv
+from gtts import gTTS
 
 # ----------- Whisper 모델 로드 -----------
 whisper_model = whisper.load_model("base")
@@ -90,7 +93,11 @@ def transcribe_audio_to_text(audio_data, timeout=5):
 # ----------- 오디오 입력 통합 함수 -----------
 def handle_audio_input():
     recognizer = sr.Recognizer()
-    microphone = sr.Microphone(device_index=3, sample_rate=48000, chunk_size=1024)
+    try:
+        microphone = sr.Microphone(device_index=3, sample_rate=48000, chunk_size=1024)
+    except Exception as e:
+        logging.error(f"[ERROR] 마이크 장치 초기화 실패: {e}")
+        return None
 
     logging.info("=======================================================")
     logging.info("🎤 음성 비서가 준비되었습니다.")
@@ -105,12 +112,14 @@ def handle_audio_input():
                 recognizer.adjust_for_ambient_noise(source, duration=1.5)
                 logging.info("🎙 질문을 듣는 중...")
                 audio = recognizer.listen(source, timeout=3)
+
             return audio
 
         except sr.UnknownValueError:
             logging.warning("⚠️ 음성을 이해하지 못했습니다. 다시 말씀해주세요.")
         except Exception as e:
             logging.error(f"[ERROR] 음성 입력 오류: {e}")
+            return None
 
 
 # ----------- GPT 응답 생성 함수 -----------
@@ -132,6 +141,35 @@ def generate_response(user_input):
     except Exception as e:
         logging.error(f"[ERROR] GPT 응답 생성 중 오류 발생: {e}")
         return None
+
+
+def speak_text(text, speed=1.3):
+    try:
+        timestamp = int(time.time())
+        original = f"tts_{timestamp}.mp3"
+        adjusted = f"tts_{timestamp}_fast.mp3"
+
+        # 1. gTTS 음성 생성
+        tts = gTTS(text=text, lang='ko')
+        tts.save(original)
+
+        # 2. ffmpeg로 재생 속도 조절
+        subprocess.run([
+            "ffmpeg", "-y", "-i", original,
+            "-filter:a", f"atempo={speed}",
+            adjusted
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # 3. mpg123로 mp3 재생
+        subprocess.run(["mpg123", adjusted], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # 4. 임시 파일 삭제
+        os.remove(original)
+        os.remove(adjusted)
+
+        logging.info(f"🗣️ 음성 출력 (1.3x): {text}")
+    except Exception as e:
+        logging.error(f"[ERROR] 음성 출력 실패: {e}")
 
 
 # ----------- 메인 루프 -----------
@@ -156,6 +194,7 @@ def main():
                 continue
 
             logging.info(f"✅ 최종 응답: {response}")
+            speak_text(response)
 
         except KeyboardInterrupt:
             logging.info("\n🚪 프로그램을 종료합니다.")
