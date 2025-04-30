@@ -7,13 +7,11 @@ GPT: GPT-4o
 serial: 없음
 """
 
-import ctypes
 import logging
 import multiprocessing
 import os
 import platform
 import subprocess
-import sys
 import time
 import timeit
 
@@ -24,27 +22,9 @@ from dotenv import load_dotenv
 from google.cloud import texttospeech
 
 # ----------- 환경 변수 로드 -----------
-print(sr.Microphone.list_microphone_names())
-
 load_dotenv()
 
-# error 메세지 제거용 코드
-sys.stderr = open(os.devnull, 'w')  # Python 레벨 stderr
-
-# ALSA 오류 핸들러 제거
-try:
-    asound = ctypes.cdll.LoadLibrary('libasound.so')
-    asound.snd_lib_error_set_handler(None)
-except Exception:
-    pass
-
-os.environ["JACK_NO_START_SERVER"] = "1"  # JACK 서버 연결 무시
-os.environ["PULSE_SERVER"] = ""  # PulseAudio 경로 무효화
-os.environ["DISPLAY"] = ""  # X 관련 경고 억제
-
 openai.api_key = os.getenv("OPENAI_API_KEY")
-MICROPHONE_INDEX = int(os.getenv("MICROPHONE_INDEX", 0))
-MICROPHONE_SAMPLE_RATE = int(os.getenv("MICROPHONE_SAMPLE_RATE", 16000))
 TTS_SPEAKING_RATE = float(os.getenv("TTS_SPEAKING_RATE", 1.0))
 TTS_VOICE = os.getenv("TTS_VOICE", "ko-KR-Standard-A")
 
