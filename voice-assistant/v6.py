@@ -15,6 +15,7 @@ import platform
 import subprocess
 import sys
 import time
+import timeit
 
 import openai
 import speech_recognition as sr
@@ -143,11 +144,7 @@ def transcribe_audio_to_text(audio_data, timeout=5):
 # ----------- 오디오 입력 함수 -----------
 def handle_audio_input():
     recognizer = sr.Recognizer()
-    try:
-        microphone = sr.Microphone(device_index=MICROPHONE_INDEX, sample_rate=MICROPHONE_SAMPLE_RATE, chunk_size=1024)
-    except Exception as e:
-        logging.error(f"[ERROR] 마이크 장치 초기화 실패: {e}")
-        return None
+    microphone = sr.Microphone()
 
     logging.info("=======================================================")
     logging.info("🎤 음성 비서가 준비되었습니다.")
@@ -238,6 +235,7 @@ def main():
     while True:
         try:
             audio_data = handle_audio_input()
+            start_time = timeit.default_timer()
             if not audio_data:
                 continue
 
@@ -256,6 +254,9 @@ def main():
 
             logging.info(f"✅ 최종 응답: {response}")
             speak_text(response)
+            end_time = timeit.default_timer()
+            elapsed_time = end_time - start_time
+            logging.info(f"⏳ 실행 시간: {elapsed_time:.3f}초")
 
         except KeyboardInterrupt:
             logging.info("\n🚪 프로그램을 종료합니다.")
