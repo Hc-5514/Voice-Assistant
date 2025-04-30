@@ -175,6 +175,10 @@ def speak_text(text):
         timestamp = int(time.time())
         wav_file = f"tts_{timestamp}.wav"
 
+        logging.info("[INFO] Google Cloud TTS 클라이언트 초기화 시도 중...")
+        client = texttospeech.TextToSpeechClient()
+        logging.info("[INFO] 클라이언트 초기화 완료")
+
         client = texttospeech.TextToSpeechClient()
 
         synthesis_input = texttospeech.SynthesisInput(text=text)
